@@ -18,7 +18,7 @@
 	let error = '';
 	let ffmpeg: FFmpeg;
 	let progress = tweened(0);
-	let output = [''];
+	let output = ['Waiting for file...'];
 
 	async function fetchFile(file: File): Promise<Uint8Array> {
 		return new Promise((resolve) => {

@@ -1,10 +1,11 @@
 <script lang="ts">
 	import { afterUpdate } from 'svelte';
 
-	export let output: string[] = [];
+	export let output: string[];
 
 	let termOutputEl: HTMLElement;
 	let isUserScrolling = false;
+	let isExpanded = false;
 
 	function onScroll() {
 		const isAtBottom =
@@ -13,17 +14,25 @@
 	}
 
 	afterUpdate(() => {
-		if (!isUserScrolling) {
+		if (!isUserScrolling && isExpanded) {
 			termOutputEl.scrollTop = termOutputEl.scrollHeight;
 		}
 	});
 </script>
 
 <div bind:this={termOutputEl} on:scroll={onScroll} class="term">
-	<div class="term-output">
-		{#each output as line}
-			<div class="term-line"><span class="term-text">{line}</span></div>
-		{/each}
+	{#if isExpanded}
+		<div class="term-output">
+			{#each output as line}
+				<div class="term-line"><span class="term-text">{line}</span></div>
+			{/each}
+		</div>
+		<hr />
+	{/if}
+	<div class="expand">
+		<button on:click={() => (isExpanded = !isExpanded)} class="expand-button"
+			>{isExpanded ? 'Hide output' : 'Show output'}</button
+		>
 	</div>
 </div>
 
@@ -35,7 +44,7 @@
 		padding: 10px;
 		margin-bottom: 30px;
 		overflow-y: auto;
-		height: 300px;
+		max-height: 300px;
 		width: auto;
 		border: 1px solid hsl(0 0% 30%);
 		border-radius: 5px;
@@ -48,5 +57,13 @@
 	}
 	.term-text {
 		display: block;
+	}
+
+	.expand-button {
+		all: unset;
+		outline: inherit;
+		color: hsl(300, 50%, 60%);
+		cursor: pointer;
+		text-decoration: underline;
 	}
 </style>
