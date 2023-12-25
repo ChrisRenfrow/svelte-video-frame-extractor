@@ -1,0 +1,23 @@
+@import url('@fontsource/iosevka-aile');
+@import url('@fontsource/iosevka');
+
+:root {
+	--bg-clr: hsl(220deg 10% 10%);
+	--txt-clr: hsl(220deg 0% 90%);
+}
+
+html,
+body {
+	height: 100%;
+}
+
+body {
+	display: grid;
+	place-content: center;
+	color: var(--txt-clr);
+	font-family: 'Iosevka Aile', sans-serif;
+	background-color: var(--bg-clr);
+	transition:
+		background-color 0.3s,
+		color 0.3s;
+}
