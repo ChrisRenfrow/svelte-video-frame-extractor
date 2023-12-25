@@ -30,7 +30,6 @@
 					resolve(new Uint8Array(result));
 				}
 			};
-
 			fileReader.onerror = () => {
 				error = 'Could not read file';
 			};
@@ -43,15 +42,14 @@
 		state = 'convert.start';
 
 		const videoData = await fetchFile(file);
+
 		await ffmpeg.writeFile(file.name, videoData);
 		await ffmpeg.createDir('frames');
 		await ffmpeg.exec(['-i', file.name, '-vf', 'fps=1', 'frames/f%04d.png']);
 		const frameNodes = await ffmpeg.listDir('frames');
-		console.log(frameNodes);
-		let frameDataP = frameNodes
+		const frameDataP = frameNodes
 			.filter((file) => !file.isDir)
 			.map(async (file) => {
-				console.log(file);
 				const data = await ffmpeg.readFile(`frames/${file.name}`);
 				return { name: file.name, data: data as Uint8Array };
 			});
@@ -61,11 +59,9 @@
 
 	async function downloadFrames(frames: FrameFile[]) {
 		const zip = new JSZip();
-
 		frames.forEach(({ name, data }) => {
 			zip.file(name, data);
 		});
-
 		const zipped = await zip.generateAsync({ type: 'blob' });
 
 		const a = document.createElement('a');
@@ -77,20 +73,32 @@
 		}, 1000);
 	}
 
+	function humanFileSize(size: number): string {
+		const units = ['B', 'kB', 'MB', 'GB', 'TB'];
+		const i = size === 0 ? 0 : Math.floor(Math.log(size) / Math.log(1024));
+		return (size / Math.pow(1024, i)).toFixed(2) + ' ' + units[i];
+	}
+
 	async function handleDrop(event: DragEvent) {
 		if (state !== 'loaded' || !event.dataTransfer) return;
 		if (event.dataTransfer.files.length > 1) {
 			error = 'One file at a time please.';
 		}
+		// Reset output since we're beginning to process a new file.
+		output = [output[0]];
 
 		const [file] = event.dataTransfer.files;
+		console.log(`File dropped: ${file.name} (${humanFileSize(file.size)})`);
 
 		if (file.type === 'video/webm') {
 			error = '';
 			const data = await getVideoFrames(file);
 			state = 'convert.done';
 			await downloadFrames(data);
-			state = 'loaded';
+			setTimeout(() => {
+				// Use a timeout to reset state so the confetti animation has plenty of time to play
+				reset();
+			}, 3000);
 		} else {
 			error = `Unsupported format: ${file.type}`;
 		}
@@ -100,10 +108,9 @@
 		const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.5/dist/esm';
 		ffmpeg = new FFmpeg();
 
-		ffmpeg.on('log', (msg) => {
-			output = [...output, msg.message];
+		ffmpeg.on('log', (event) => {
+			output = [...output, event.message];
 		});
-
 		ffmpeg.on('progress', (event) => {
 			$progress = event.progress * 100;
 		});
@@ -114,6 +121,12 @@
 		});
 
 		state = 'loaded';
+	}
+
+	function reset() {
+		// Intentionally leaving the output from being reset as the user may want to review it before the next round
+		state = 'loaded';
+		progress = tweened(0);
 	}
 
 	onMount(() => {
