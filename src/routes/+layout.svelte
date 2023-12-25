@@ -5,5 +5,5 @@
 <slot />
 
 <svelte:head>
-	<title>Video Converter</title>
+	<title>Frame Extractor</title>
 </svelte:head>

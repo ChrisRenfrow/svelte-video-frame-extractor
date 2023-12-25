@@ -4,9 +4,15 @@
 	import { fade } from 'svelte/transition';
 	import { FFmpeg } from '@ffmpeg/ffmpeg';
 	import { onMount } from 'svelte';
+	import JSZip from 'jszip';
 	import TermOutput from './components/TermOutput.svelte';
 
 	type State = 'loading' | 'loaded' | 'convert.start' | 'convert.error' | 'convert.done';
+
+	interface FrameFile {
+		name: string;
+		data: Uint8Array;
+	}
 
 	let state: State = 'loading';
 	let error = '';
@@ -33,23 +39,38 @@
 		});
 	}
 
-	async function convertVideo(file: File) {
+	async function getVideoFrames(file: File): Promise<FrameFile[]> {
 		state = 'convert.start';
 
 		const videoData = await fetchFile(file);
-		await ffmpeg.writeFile('input.webm', videoData);
-		await ffmpeg.exec(['-i', 'input.webm', 'output.mp4']);
-		const data = await ffmpeg.readFile('output.mp4');
+		await ffmpeg.writeFile(file.name, videoData);
+		await ffmpeg.createDir('frames');
+		await ffmpeg.exec(['-i', file.name, '-vf', 'fps=1', 'frames/f%04d.png']);
+		const frameNodes = await ffmpeg.listDir('frames');
+		console.log(frameNodes);
+		let frameDataP = frameNodes
+			.filter((file) => !file.isDir)
+			.map(async (file) => {
+				console.log(file);
+				const data = await ffmpeg.readFile(`frames/${file.name}`);
+				return { name: file.name, data: data as Uint8Array };
+			});
 
-		state = 'convert.done';
-
-		return data as Uint8Array;
+		return Promise.all(frameDataP);
 	}
 
-	function downloadVideo(data: Uint8Array) {
+	async function downloadFrames(frames: FrameFile[]) {
+		const zip = new JSZip();
+
+		frames.forEach(({ name, data }) => {
+			zip.file(name, data);
+		});
+
+		const zipped = await zip.generateAsync({ type: 'blob' });
+
 		const a = document.createElement('a');
-		a.href = URL.createObjectURL(new Blob([data.buffer], { type: 'video/mp4' }));
-		a.download = 'video.mp4';
+		a.href = URL.createObjectURL(new Blob([zipped], { type: 'application/zip' }));
+		a.download = 'frames.zip';
 
 		setTimeout(() => {
 			a.click();
@@ -66,8 +87,9 @@
 
 		if (file.type === 'video/webm') {
 			error = '';
-			const data = await convertVideo(file);
-			downloadVideo(data);
+			const data = await getVideoFrames(file);
+			state = 'convert.done';
+			await downloadFrames(data);
 			state = 'loaded';
 		} else {
 			error = `Unsupported format: ${file.type}`;
@@ -99,9 +121,16 @@
 	});
 </script>
 
-<h1 class="title">Converter</h1>
+<div class="body">
+	<div class="info-container">
+		<h1 class="title">Frame Extractor</h1>
+		<p>
+			This Svelte app uses <a href="https://ffmpegwasm.netlify.app">ffmpeg.wasm</a> to extract frames
+			(one per second, for now!) from a video file and saves them as a zip file, all without any information
+			leaving your browser! Drag a video file into the box below to get started.
+		</p>
+	</div>
 
-<div class="container">
 	<!-- svelte-ignore a11y-no-static-element-interactions -->
 	<div
 		on:drop|preventDefault={handleDrop}
@@ -113,7 +142,7 @@
 			<p in:fade>Loading FFmpeg...</p>
 		{/if}
 		{#if state === 'loaded'}
-			<p in:fade>Drag video here</p>
+			<p in:fade>Drag and drop your video here</p>
 		{/if}
 		{#if state === 'convert.start'}
 			<p in:fade>Converting...</p>
@@ -125,7 +154,7 @@
 		{/if}
 		{#if state === 'convert.done'}
 			<div use:confetti />
-			<p in:fade>Done!</p>
+			<p in:fade>Done! 🎉</p>
 		{/if}
 
 		{#if error}
@@ -141,7 +170,7 @@
 		text-align: center;
 	}
 
-	.container {
+	.body {
 		width: 600px;
 		display: grid;
 		place-content: center;
