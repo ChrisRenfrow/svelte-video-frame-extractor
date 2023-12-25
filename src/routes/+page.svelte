@@ -4,6 +4,7 @@
 	import { fade } from 'svelte/transition';
 	import { FFmpeg } from '@ffmpeg/ffmpeg';
 	import { onMount } from 'svelte';
+	import TermOutput from './components/TermOutput.svelte';
 
 	type State = 'loading' | 'loaded' | 'convert.start' | 'convert.error' | 'convert.done';
 
@@ -67,6 +68,7 @@
 			error = '';
 			const data = await convertVideo(file);
 			downloadVideo(data);
+			state = 'loaded';
 		} else {
 			error = `Unsupported format: ${file.type}`;
 		}
@@ -95,8 +97,6 @@
 	onMount(() => {
 		loadFFmpeg();
 	});
-
-	$: console.log(state);
 </script>
 
 <h1 class="title">Converter</h1>
@@ -118,7 +118,7 @@
 		{#if state === 'convert.start'}
 			<p in:fade>Converting...</p>
 			<div class="progress-bar">
-				<div class="progress" style:--progress={$progress}>
+				<div class="progress" style:--progress="{$progress}%">
 					{$progress.toFixed(0)}%
 				</div>
 			</div>
@@ -133,15 +133,7 @@
 		{/if}
 	</div>
 
-	<div class="terminal">
-		<div class="terminal-output">
-			{#each output as line}
-				<div class="terminal-line">
-					<span class="terminal-text">{line}</span>
-				</div>
-			{/each}
-		</div>
-	</div>
+	<TermOutput {output} />
 </div>
 
 <style>
@@ -196,28 +188,6 @@
 			background: var(--progress-bar-clr);
 			color: var(--progress-txt-clr);
 			border-radius: 8px;
-		}
-	}
-
-	.terminal {
-		background-color: hsl(0, 0%, 10%);
-		color: hsl(300, 50%, 40%);
-		font-family: 'Iosevka', monospace;
-		padding: 10px;
-		margin-bottom: 30px;
-		overflow-y: auto;
-		height: 300px;
-		width: 600px;
-		border: 1px solid hsl(0 0% 30%);
-		border-radius: 5px;
-		& .terminal-output {
-			white-space: pre;
-			& .terminal-line {
-				margin: 0;
-				& .terminal-text {
-					display: block;
-				}
-			}
 		}
 	}
 </style>
